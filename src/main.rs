@@ -1,30 +1,23 @@
-use fltk::{app, window::Window, prelude::*};
-use mlua::Lua;
+use fltk::{app, button::Button, prelude::*, window::Window};
 
 fn main() {
-    // 创建 Lua 虚拟机
-    let lua = Lua::new();
+    let app = app::App::default();
+    let mut wind = Window::new(100, 100, 800, 600, "Luza Demo");
+    let btn = Button::new(360, 270, 80, 60, "Click Me");
+    wind.end();
+    wind.show();
 
-    // 注册 Rust 函数到 Lua，让 Lua 能创建窗口
-    let create_window = lua
-        .create_function(|_, (width, height): (i32, i32)| {
-            let app = app::App::default();
-            let mut win = Window::new(100, 100, width, height, "Luza Demo");
-            win.end();
-            win.show();
-            app.run().unwrap();
-            Ok(())
-        })
-        .unwrap();
+    // Lua engine
+    let lua = mlua::Lua::new();
 
-    lua.globals().set("create_window", create_window).unwrap();
+    if let Some(path) = std::env::args().nth(1) {
+        if let Ok(code) = std::fs::read_to_string(&path) {
+            let chunk = lua.load(&code).set_name("script.lua");
+            if let Err(e) = chunk.exec() {
+                eprintln!("Lua error: {}", e);
+            }
+        }
+    }
 
-    // 执行 Lua 脚本
-    lua.eval::<()>(
-        r#"
-        print("Hello from Lua!")
-        create_window(400, 300)
-        "#,
-    )
-    .unwrap();
+    app.run().unwrap();
 }
