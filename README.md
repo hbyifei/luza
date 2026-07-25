@@ -55,6 +55,11 @@ luza/
 - mlua（Lua 5.4 嵌入）
 - Arc + Mutex（线程安全共享 Lua 虚拟机）
 
+## 贡献
+
+本项目使用 DCO（Developer Certificate of Origin）。提交时请使用 `git commit -s`，
+详见 CONTRIBUTING.md。
+
 ## 许可证
 
-MIT
+Apache-2.0
