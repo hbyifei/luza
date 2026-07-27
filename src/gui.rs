@@ -1,4 +1,4 @@
-use fltk::{app, button::Button, input::Input, prelude::*, window::Window};
+use fltk::{app, button::Button, button::CheckButton, input::Input, prelude::*, window::Window};
 use mlua::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -132,6 +132,60 @@ impl mlua::UserData for LuaInput {
     }
 }
 
+// ========== CheckButton 复选框 ==========
+
+#[derive(Clone)]
+pub struct LuaCheckButton {
+    inner: Rc<RefCell<CheckButton>>,
+}
+
+impl LuaCheckButton {
+    pub fn new(x: i32, y: i32, w: i32, h: i32, label: &str) -> Self {
+        let cb = CheckButton::new(x, y, w, h, label);
+        Self {
+            inner: Rc::new(RefCell::new(cb)),
+        }
+    }
+
+    pub fn is_checked(&self) -> bool {
+        self.inner.borrow().is_set()
+    }
+
+    pub fn set_checked(&self, checked: bool) {
+        self.inner.borrow_mut().set_value(checked);
+    }
+
+    pub fn on_toggle(&self, func: mlua::Function) -> LuaResult<()> {
+        let mut cb = self.inner.borrow().clone();
+        let func = Rc::new(func);
+        cb.set_callback({
+            let func = func.clone();
+            move |_| {
+                if let Err(e) = func.call::<()>(()) {
+                    eprintln!("Lua callback error: {}", e);
+                }
+            }
+        });
+        *self.inner.borrow_mut() = cb;
+        Ok(())
+    }
+}
+
+impl mlua::UserData for LuaCheckButton {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("is_checked", |_, this, ()| {
+            Ok(this.is_checked())
+        });
+        methods.add_method("set_checked", |_, this, checked: bool| {
+            this.set_checked(checked);
+            Ok(())
+        });
+        methods.add_method_mut("on_toggle", |_, this, func: mlua::Function| {
+            this.on_toggle(func)
+        });
+    }
+}
+
 // ========== 注册 gui 模块 ==========
 
 pub fn register_gui_module(lua: &Lua) -> LuaResult<()> {
@@ -154,6 +208,12 @@ pub fn register_gui_module(lua: &Lua) -> LuaResult<()> {
         Ok(LuaInput::new(x, y, w, h, &label))
     })?;
     gui.set("Input", input_ctor)?;
+
+    // gui.CheckButton(x, y, w, h, label)
+    let cb_ctor = lua.create_function(|_, (x, y, w, h, label): (i32, i32, i32, i32, String)| {
+        Ok(LuaCheckButton::new(x, y, w, h, &label))
+    })?;
+    gui.set("CheckButton", cb_ctor)?;
 
     // gui.run()
     let run_fn = lua.create_function(|_, ()| {
